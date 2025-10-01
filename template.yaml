@@ -1,0 +1,162 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Generac Generator Monitoring and Notification Service
+
+Parameters:
+  GeneracSessionCookie:
+    Type: String
+    Description: Session cookie from Generac MobileLink (app.mobilelinkgen.com)
+    NoEcho: true
+
+  CheckSchedule:
+    Type: String
+    Default: 'rate(5 minutes)'
+    Description: How often to check generator status (e.g., 'rate(5 minutes)', 'cron(0/5 * * * ? *)')
+
+  SnsTopicArn:
+    Type: String
+    Default: ''
+    Description: (Optional) ARN of SNS topic for notifications
+
+  SesFromEmail:
+    Type: String
+    Default: ''
+    Description: (Optional) From email address for SES notifications
+
+  SesToEmails:
+    Type: String
+    Default: ''
+    Description: (Optional) Comma-separated list of recipient email addresses
+
+  NotifyOnStatusChange:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable status change notifications
+
+  NotifyOnConnectivityChange:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable connectivity change notifications
+
+  NotifyOnMaintenanceAlert:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable maintenance alert notifications
+
+  NotifyOnWarning:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable warning notifications
+
+  NotifyOnLowBattery:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable low battery notifications
+
+  LowBatteryThreshold:
+    Type: Number
+    Default: 12.0
+    Description: Battery voltage threshold for low battery alerts (volts)
+
+Conditions:
+  HasSnsTopicArn: !Not [!Equals [!Ref SnsTopicArn, '']]
+  HasSesFromEmail: !Not [!Equals [!Ref SesFromEmail, '']]
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 256
+    Runtime: python3.11
+    Architectures:
+      - x86_64
+
+Resources:
+  # DynamoDB table for storing device state
+  DeviceStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-device-state'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: device_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: device_id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # Lambda function
+  GeneracMonitorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-monitor'
+      CodeUri: src/
+      Handler: lambda_handler.lambda_handler
+      Description: Monitor Generac generators and send notifications
+      Environment:
+        Variables:
+          GENERAC_SESSION_COOKIE: !Ref GeneracSessionCookie
+          DYNAMODB_TABLE: !Ref DeviceStateTable
+          SNS_TOPIC_ARN: !If [HasSnsTopicArn, !Ref SnsTopicArn, !Ref AWS::NoValue]
+          SES_FROM_EMAIL: !If [HasSesFromEmail, !Ref SesFromEmail, !Ref AWS::NoValue]
+          SES_TO_EMAILS: !Ref SesToEmails
+          NOTIFY_ON_STATUS_CHANGE: !Ref NotifyOnStatusChange
+          NOTIFY_ON_CONNECTIVITY_CHANGE: !Ref NotifyOnConnectivityChange
+          NOTIFY_ON_MAINTENANCE_ALERT: !Ref NotifyOnMaintenanceAlert
+          NOTIFY_ON_WARNING: !Ref NotifyOnWarning
+          NOTIFY_ON_LOW_BATTERY: !Ref NotifyOnLowBattery
+          LOW_BATTERY_THRESHOLD: !Ref LowBatteryThreshold
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DeviceStateTable
+        - Statement:
+            - Sid: SNSPublish
+              Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !If [HasSnsTopicArn, !Ref SnsTopicArn, !Ref AWS::NoValue]
+            - Sid: SESsendEmail
+              Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+      Events:
+        ScheduledCheck:
+          Type: Schedule
+          Properties:
+            Schedule: !Ref CheckSchedule
+            Description: Periodic check of Generac generator status
+            Enabled: true
+
+  # CloudWatch Log Group
+  MonitorFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${GeneracMonitorFunction}'
+      RetentionInDays: 7
+
+Outputs:
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref GeneracMonitorFunction
+
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt GeneracMonitorFunction.Arn
+
+  DynamoDBTable:
+    Description: DynamoDB table name
+    Value: !Ref DeviceStateTable
+
+  LogGroup:
+    Description: CloudWatch Log Group
+    Value: !Ref MonitorFunctionLogGroup
