@@ -6,17 +6,17 @@ This project is adapted from the [ha-generac](https://github.com/binarydev/ha-ge
 
 ## Features
 
-- 🔄 **Automated Monitoring**: Periodic checks of generator status via AWS EventBridge
-- 📊 **State Tracking**: Stores previous state in DynamoDB to detect changes
-- 📧 **Flexible Notifications**: Send alerts via SNS or SES (email)
-- 🔋 **Comprehensive Alerts**:
+- **Automated Monitoring**: Periodic checks of generator status via AWS EventBridge
+- **State Tracking**: Stores previous state in DynamoDB to detect changes
+- **Flexible Notifications**: Send alerts via SNS or SES (email)
+- **Comprehensive Alerts**:
   - Generator status changes (Ready, Running, Exercising, etc.)
   - Connectivity changes
   - Maintenance alerts
   - Warning conditions
   - Low battery voltage
-- ⚙️ **Configurable**: Customize check frequency and notification preferences
-- 🏗️ **Infrastructure as Code**: Deploy with AWS SAM
+- **Configurable**: Customize check frequency and notification preferences
+- **Infrastructure as Code**: Deploy with AWS SAM
 
 ## Architecture
 
@@ -37,7 +37,7 @@ EventBridge Schedule (every 5 min)
 1. **Generac MobileLink Account**: Active account at https://app.mobilelinkgen.com/
 2. **AWS Account**: With permissions to create Lambda, DynamoDB, EventBridge, SNS, and SES resources
 3. **AWS SAM CLI**: [Install AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
-4. **Python 3.11+**: For local development/testing
+4. **Python 3.13+**: For local development/testing
 
 ## Getting the Session Cookie
 
@@ -50,7 +50,7 @@ The Generac API requires authentication via a session cookie (username/password 
 5. In the **Headers** tab, scroll down to find the **Cookie** field
 6. Copy the entire cookie value (it will be very long, thousands of characters)
 
-⚠️ **Important**: Keep this cookie secure. Store it in AWS Secrets Manager or parameter store for production use.
+**Important**: Keep this cookie secure. Store it in AWS Secrets Manager or parameter store for production use.
 
 ## Deployment
 
@@ -72,7 +72,7 @@ aws secretsmanager create-secret \
   --region us-east-1
 ```
 
-⚠️ **Important**: Replace `YOUR_VERY_LONG_SESSION_COOKIE_HERE` with the actual cookie you copied from step 1.
+**Important**: Replace `YOUR_VERY_LONG_SESSION_COOKIE_HERE` with the actual cookie you copied from step 1.
 
 ### 3. Deploy with SAM
 
@@ -116,7 +116,7 @@ Check your inbox for a verification email from AWS.
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `GeneracSessionCookie` | ✅ Yes | - | Session cookie from Generac MobileLink |
+| `SecretName` | No | `generac-notifier/session-cookie` | AWS Secrets Manager secret name containing session cookie |
 | `CheckSchedule` | No | `rate(5 minutes)` | EventBridge schedule expression |
 | `SnsTopicArn` | No | - | SNS topic ARN for notifications |
 | `SesFromEmail` | No | - | From email address for SES |
@@ -212,7 +212,7 @@ Current Status:
 Status: Ready
 Connected: Yes
 Battery: 11.8V
-🔋 Low Battery Warning
+Low Battery Warning
 
 Timestamp: 2025-10-01T15:35:00Z
 ```
