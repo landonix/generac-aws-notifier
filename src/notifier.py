@@ -6,7 +6,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
-from .config import Config, GENERATOR_STATUS_MAP, DEVICE_NAME_MAP
+from config import Config, GENERATOR_STATUS_MAP, DEVICE_NAME_MAP
 
 logger = logging.getLogger(__name__)
 

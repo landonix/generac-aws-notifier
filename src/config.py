@@ -8,11 +8,12 @@ from typing import Optional
 class Config:
     """Application configuration."""
 
-    # Generac API
+    # Required fields (no defaults)
     session_cookie: str
-
-    # AWS Resources
     dynamodb_table: str
+
+    # Optional fields (with defaults)
+    secret_name: Optional[str] = None
     sns_topic_arn: Optional[str] = None
     ses_from_email: Optional[str] = None
     ses_to_emails: Optional[list[str]] = None
@@ -30,10 +31,11 @@ class Config:
         """Load configuration from environment variables.
 
         Required environment variables:
-            GENERAC_SESSION_COOKIE: Session cookie from Generac MobileLink
+            SECRET_NAME: Name of AWS Secrets Manager secret containing session cookie
             DYNAMODB_TABLE: Name of DynamoDB table for state storage
 
         Optional environment variables:
+            GENERAC_SESSION_COOKIE: Direct session cookie (if not using Secrets Manager)
             SNS_TOPIC_ARN: ARN of SNS topic for notifications
             SES_FROM_EMAIL: From email address for SES notifications
             SES_TO_EMAILS: Comma-separated list of recipient emails
@@ -44,9 +46,24 @@ class Config:
             NOTIFY_ON_LOW_BATTERY: Enable low battery notifications (default: true)
             LOW_BATTERY_THRESHOLD: Battery voltage threshold (default: 12.0)
         """
+        import boto3
+        import json as json_lib
+
+        # Get session cookie from Secrets Manager or environment
+        secret_name = os.environ.get("SECRET_NAME")
         session_cookie = os.environ.get("GENERAC_SESSION_COOKIE")
+
+        if secret_name:
+            # Fetch from Secrets Manager
+            try:
+                secrets_client = boto3.client("secretsmanager")
+                secret_value = secrets_client.get_secret_value(SecretId=secret_name)
+                session_cookie = secret_value["SecretString"]
+            except Exception as e:
+                raise ValueError(f"Failed to retrieve secret from Secrets Manager: {e}")
+
         if not session_cookie:
-            raise ValueError("GENERAC_SESSION_COOKIE environment variable is required")
+            raise ValueError("Either SECRET_NAME or GENERAC_SESSION_COOKIE environment variable is required")
 
         dynamodb_table = os.environ.get("DYNAMODB_TABLE")
         if not dynamodb_table:
@@ -59,6 +76,7 @@ class Config:
 
         return cls(
             session_cookie=session_cookie,
+            secret_name=secret_name,
             dynamodb_table=dynamodb_table,
             sns_topic_arn=os.environ.get("SNS_TOPIC_ARN"),
             ses_from_email=os.environ.get("SES_FROM_EMAIL"),

@@ -3,10 +3,10 @@ Transform: AWS::Serverless-2016-10-31
 Description: Generac Generator Monitoring and Notification Service
 
 Parameters:
-  GeneracSessionCookie:
+  SecretName:
     Type: String
-    Description: Session cookie from Generac MobileLink (app.mobilelinkgen.com)
-    NoEcho: true
+    Default: 'generac-notifier/session-cookie'
+    Description: Name of Secrets Manager secret containing session cookie
 
   CheckSchedule:
     Type: String
@@ -71,7 +71,7 @@ Globals:
   Function:
     Timeout: 60
     MemorySize: 256
-    Runtime: python3.11
+    Runtime: python3.13
     Architectures:
       - x86_64
 
@@ -103,7 +103,7 @@ Resources:
       Description: Monitor Generac generators and send notifications
       Environment:
         Variables:
-          GENERAC_SESSION_COOKIE: !Ref GeneracSessionCookie
+          SECRET_NAME: !Ref SecretName
           DYNAMODB_TABLE: !Ref DeviceStateTable
           SNS_TOPIC_ARN: !If [HasSnsTopicArn, !Ref SnsTopicArn, !Ref AWS::NoValue]
           SES_FROM_EMAIL: !If [HasSesFromEmail, !Ref SesFromEmail, !Ref AWS::NoValue]
@@ -118,16 +118,21 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref DeviceStateTable
         - Statement:
-            - Sid: SNSPublish
+            - Sid: SecretsManagerRead
               Effect: Allow
               Action:
-                - sns:Publish
-              Resource: !If [HasSnsTopicArn, !Ref SnsTopicArn, !Ref AWS::NoValue]
+                - secretsmanager:GetSecretValue
+              Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:generac-notifier/session-cookie-*'
             - Sid: SESsendEmail
               Effect: Allow
               Action:
                 - ses:SendEmail
                 - ses:SendRawEmail
+              Resource: '*'
+            - Sid: SNSPublish
+              Effect: Allow
+              Action:
+                - sns:Publish
               Resource: '*'
       Events:
         ScheduledCheck:

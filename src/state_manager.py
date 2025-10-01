@@ -76,8 +76,8 @@ class StateManager:
         Returns:
             Dictionary with relevant state information
         """
-        from .models import Item
-        from .config import DEVICE_TYPE_GENERATOR
+        from models import Item
+        from config import DEVICE_TYPE_GENERATOR
 
         if not isinstance(item, Item):
             return {}

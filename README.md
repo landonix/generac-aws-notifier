@@ -57,27 +57,22 @@ The Generac API requires authentication via a session cookie (username/password 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/generac-aws-notifier.git
+git clone https://github.com/landonix/generac-aws-notifier.git
 cd generac-aws-notifier
 ```
 
-### 2. Configure Parameters
+### 2. Store Session Cookie in AWS Secrets Manager
 
-Create a `samconfig.toml` file or use command-line parameters. Example:
+Store your session cookie securely in AWS Secrets Manager:
 
-```toml
-version = 0.1
-[default.deploy.parameters]
-stack_name = "generac-notifier"
-region = "us-east-1"
-capabilities = "CAPABILITY_IAM"
-parameter_overrides = [
-    "GeneracSessionCookie=YOUR_SESSION_COOKIE_HERE",
-    "CheckSchedule=rate(5 minutes)",
-    "SesToEmails=your-email@example.com",
-    "SesFromEmail=noreply@example.com"
-]
+```bash
+aws secretsmanager create-secret \
+  --name generac-notifier/session-cookie \
+  --secret-string "YOUR_VERY_LONG_SESSION_COOKIE_HERE" \
+  --region us-east-1
 ```
+
+⚠️ **Important**: Replace `YOUR_VERY_LONG_SESSION_COOKIE_HERE` with the actual cookie you copied from step 1.
 
 ### 3. Deploy with SAM
 
@@ -85,15 +80,24 @@ parameter_overrides = [
 # Build the application
 sam build
 
-# Deploy (guided first time)
-sam deploy --guided
-
-# Or deploy with parameters
+# Deploy with your email configuration
 sam deploy \
+  --guided \
   --parameter-overrides \
-    GeneracSessionCookie="YOUR_COOKIE" \
     SesToEmails="your-email@example.com" \
-    SesFromEmail="noreply@example.com"
+    SesFromEmail="your-email@example.com"
+```
+
+On first deployment, SAM will ask you questions:
+- Stack name: `generac-notifier` (or choose your own)
+- AWS Region: `us-east-1` (or your preferred region)
+- Confirm changes: `Y`
+- Allow SAM CLI IAM role creation: `Y`
+- Save arguments to configuration: `Y`
+
+After the first deployment, you can simply run:
+```bash
+sam build && sam deploy
 ```
 
 ### 4. Verify Email Addresses (for SES)
@@ -232,10 +236,15 @@ Approximate AWS costs (us-east-1, as of 2025):
 
 If you receive `SessionExpiredException` errors:
 1. Get a new session cookie from Generac MobileLink
-2. Update the stack:
+2. Update the secret in AWS Secrets Manager:
    ```bash
-   sam deploy --parameter-overrides GeneracSessionCookie="NEW_COOKIE"
+   aws secretsmanager update-secret \
+     --secret-id generac-notifier/session-cookie \
+     --secret-string "NEW_COOKIE" \
+     --region us-east-1
    ```
+
+   The Lambda function will automatically use the new cookie on its next run.
 
 ### No Notifications Received
 

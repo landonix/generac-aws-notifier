@@ -6,7 +6,7 @@ from typing import Optional
 import aiohttp
 from dacite import from_dict
 
-from .models import Apparatus, ApparatusDetail, Item
+from models import Apparatus, ApparatusDetail, Item
 
 API_BASE = "https://app.mobilelinkgen.com/api"
 TIMEOUT = 10

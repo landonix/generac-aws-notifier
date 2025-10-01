@@ -49,3 +49,4 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+deploy-params.json

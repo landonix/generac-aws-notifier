@@ -4,10 +4,10 @@ import logging
 import sys
 from typing import Any
 
-from .config import Config
-from .generac_api import GeneracApiClient
-from .notifier import Notifier
-from .state_manager import StateManager
+from config import Config
+from generac_api import GeneracApiClient
+from notifier import Notifier
+from state_manager import StateManager
 
 # Configure logging
 logger = logging.getLogger()
